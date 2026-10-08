@@ -1,6 +1,6 @@
 {
-  "name": "Ransom",
-  "short_name": "Ransom",
+  "name": "Ransom.exe",
+  "short_name": "Ransom.exe",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b0b0d",
