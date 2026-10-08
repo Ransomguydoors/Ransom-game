@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <meta name="description" content="A tiny Ransom timer game.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>Ransom</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0b0d; --panel:#17171b; --text:#f4f4f5; --muted:#a1a1aa; --accent:#eab308; --danger:#ef4444; }
+    * { box-sizing:border-box; }
+    html,body { margin:0; min-height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    body { display:flex; justify-content:center; }
+    main { width:min(100%,520px); padding:22px 16px calc(22px + env(safe-area-inset-bottom)); }
+    .card { background:var(--panel); border:1px solid #29292f; border-radius:24px; padding:24px 18px; text-align:center; }
+    .title { font-size:14px; letter-spacing:.22em; color:var(--muted); font-weight:800; }
+    .gold { margin-top:10px; font-size:27px; font-weight:800; }
+    .timer { margin:18px 0 4px; font-size:64px; line-height:1; font-variant-numeric:tabular-nums; font-weight:900; }
+    .timer.warning { color:var(--danger); }
+    .demand { color:var(--muted); margin:0 0 20px; }
+    .tap { width:100%; min-height:190px; border:2px dashed #3f3f46; border-radius:20px; background:#202025; color:var(--text); font:inherit; font-size:25px; font-weight:900; touch-action:manipulation; }
+    .tap:active { transform:scale(.985); }
+    .tap span { display:block; margin-top:8px; color:var(--accent); font-size:16px; }
+    .status { min-height:28px; margin:15px 0 12px; color:var(--muted); font-weight:600; }
+    .actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    button.small { min-height:46px; border:1px solid #3f3f46; border-radius:12px; background:#27272a; color:var(--text); padding:10px 16px; font-weight:700; }
+    .paid { color:#22c55e; }
+  </style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <div class="title">RANSOM</div>
+    <div id="gold" class="gold" aria-live="polite">Gold: 0</div>
+    <div id="timer" class="timer" aria-live="polite">1:30</div>
+    <p class="demand">Ransom demand: <strong>500 gold</strong></p>
+
+    <button id="tap" class="tap" type="button">
+      TAP ANYWHERE
+      <span>+25 GOLD</span>
+    </button>
+
+    <div id="status" class="status" aria-live="polite">Press Start to begin.</div>
+    <div class="actions">
+      <button id="start" class="small" type="button">Start / Attack</button>
+      <button id="reset" class="small" type="button">Reset</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const KEY = "ransom-pwa-state-v1";
+  const $ = id => document.getElementById(id);
+  let state = { gold: 0, remaining: 90, running: false, lastTick: null };
+  let timer = null;
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (saved && typeof saved === "object") state = {...state, ...saved};
+  } catch {}
+
+  // If the app was closed while running, continue counting from the saved timestamp.
+  if (state.running && state.lastTick) {
+    const elapsed = Math.max(0, Math.floor((Date.now() - state.lastTick) / 1000));
+    state.remaining = Math.max(0, state.remaining - elapsed);
+    if (state.remaining === 0) state.running = false;
+  }
+
+  function save() {
+    state.lastTick = state.running ? Date.now() : null;
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+
+  function render() {
+    $("gold").textContent = `Gold: ${state.gold}`;
+    const m = Math.floor(state.remaining / 60);
+    const s = state.remaining % 60;
+    $("timer").textContent = `${m}:${String(s).padStart(2, "0")}`;
+    $("timer").classList.toggle("warning", state.running && state.remaining <= 10);
+  }
+
+  function stop(message) {
+    state.running = false;
+    if (timer) { clearInterval(timer); timer = null; }
+    if (message) $("status").textContent = message;
+    save();
+    render();
+  }
+
+  function start() {
+    if (timer) clearInterval(timer);
+    state.remaining = 90;
+    state.running = true;
+    $("status").textContent = "Ransom started! You have 1:30.";
+    save();
+    render();
+
+    timer = setInterval(() => {
+      state.remaining = Math.max(0, state.remaining - 1);
+      if (state.remaining === 0) {
+        stop(state.gold >= 500 ? "Ransom paid!" : "Time is up — not enough gold.");
+        return;
+      }
+      save();
+      render();
+    }, 1000);
+  }
+
+  $("tap").addEventListener("click", () => {
+    state.gold += 25;
+    if (state.running && state.gold >= 500) {
+      $("status").textContent = "You have enough gold!";
+    }
+    save();
+    render();
+  });
+
+  $("start").addEventListener("click", start);
+
+  $("reset").addEventListener("click", () => {
+    stop();
+    state = { gold: 0, remaining: 90, running: false, lastTick: null };
+    $("status").textContent = "Reset. Press Start to begin.";
+    save();
+    render();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && state.running) {
+      const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (saved && saved.lastTick) {
+        state.remaining = Math.max(0, saved.remaining - Math.floor((Date.now() - saved.lastTick) / 1000));
+        if (state.remaining === 0) stop(state.gold >= 500 ? "Ransom paid!" : "Time is up — not enough gold.");
+        else { save(); render(); }
+      }
+    }
+  });
+
+  render();
+  if (state.running && state.remaining > 0) startIntervalWithoutReset();
+
+  function startIntervalWithoutReset() {
+    if (timer) clearInterval(timer);
+    timer = setInterval(() => {
+      state.remaining = Math.max(0, state.remaining - 1);
+      if (state.remaining === 0) {
+        stop(state.gold >= 500 ? "Ransom paid!" : "Time is up — not enough gold.");
+        return;
+      }
+      save();
+      render();
+    }, 1000);
+  }
+})();
+</script>
+</body>
+</html>
