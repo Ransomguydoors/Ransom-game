@@ -38,8 +38,7 @@
     <p class="demand">Ransom demand: <strong>500 gold</strong></p>
 
     <button id="tap" class="tap" type="button">
-      TAP ANYWHERE
-      <span>+5 GOLD</span>
+      TAP BOX      <span>+5 GOLD</span>
     </button>
 
     <div id="status" class="status" aria-live="polite">Press Start to begin.</div>
@@ -120,6 +119,7 @@
   });
 
   $("start").addEventListener("click", start);
+  setTimeout(start, 3000);
 
   $("reset").addEventListener("click", () => {
     stop();
