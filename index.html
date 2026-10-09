@@ -43,6 +43,7 @@
 
     <div id="status" class="status" aria-live="polite">Press Start to begin.</div>
     <div class="actions">
+      <button id="pay" class="small" type="button" disabled> Pay Ransom (500 gold)</button>
       <button id="start" class="small" type="button">Start / Attack</button>
       <button id="reset" class="small" type="button">Reset</button>
     </div>
@@ -75,6 +76,7 @@
 
   function render() {
     $("gold").textContent = `Gold: ${state.gold}`;
+    $("pay").disabled = state.gold < 500 || !state.running || state.paid;
     const m = Math.floor(state.remaining / 60);
     const s = state.remaining % 60;
     $("timer").textContent = `${m}:${String(s).padStart(2, "0")}`;
@@ -118,13 +120,22 @@
     save();
     render();
   });
+$("pay").addEventListener("click", () => {
+  if (!state.running || state.paid || state.gold < 500) return;
 
+  state.gold = 0;
+  state.paid = true;
+
+  $("status").textContent = "RANSOM PAID!";
+  save();
+  render();
+});
   $("start").addEventListener("click", start);
   setTimeout(start, 3000);
 
   $("reset").addEventListener("click", () => {
     stop();
-    state = { gold: 0, remaining: 90, running: false, lastTick: null };
+    state = { gold: 0, remaining: 90, running: false, lastTick: null, paid: false };
     $("status").textContent = "Reset. Press Start to begin.";
     save();
     render();
