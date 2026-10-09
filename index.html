@@ -109,7 +109,8 @@
   }
 
   $("tap").addEventListener("click", () => {
-    state.gold += 2;
+    if (state.paid) return;
+    state.gold = Math.min(500, state.gold + 2);
   
     if (state.running && state.gold >= 500) {
       $("status").textContent = "You have enough gold!";
